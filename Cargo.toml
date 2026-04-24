@@ -1,0 +1,13 @@
+[package]
+name = "vecgrep"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.93"
+license = "MIT"
+description = "ripgrep-like local semantic (vector) search CLI"
+repository = "https://github.com/Coxless/vecgrep"
+readme = "README.md"
+keywords = ["grep", "search", "semantic", "vector", "cli"]
+categories = ["command-line-utilities", "text-processing"]
+
+[dependencies]
