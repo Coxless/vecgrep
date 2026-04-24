@@ -67,6 +67,8 @@
   - `cargo build` / `cargo test` / `cargo clippy -- -D warnings` が通る。
   - CI がこれら 3 つを PR ごとに実行。
   - `cargo run -- --version` が動く。
+- **備考**:
+  - Rustはmiseで管理する。プロジェクトルートに、.mise.tomlを起き、バージョンは1.93.0とする
 
 ### Step 2: CLI スケルトン (clap derive)
 - **目的**: DESIGN §4 の CLI 表面を型で定義する。中身はダミーで OK。
