@@ -1,4 +1,4 @@
-# vecgrep — 基本構想ドキュメント
+# vsgrep — 基本構想ドキュメント
 
 > ripgrep ライクな使用感で、ローカルファイルに対して超高速なセマンティック(ベクトル)検索を行う Rust 製 CLI。
 
@@ -7,7 +7,7 @@
 ## 1. プロダクト・ビジョン
 
 - **ripgrep を置き換えるのではなく補完する**。grep できないもの (言い換え・概念検索・多言語) を grep と同じテンポで引けることを目指す。
-- `vecgrep "TCP 再送制御を行う箇所" .` のように **意味で検索**できる。
+- `vsgrep "TCP 再送制御を行う箇所" .` のように **意味で検索**できる。
 - 初回以外はすべてローカル処理。ネットワーク不要、秘密情報を外部に送らない。
 - **「インストールして即使える」** を最重要 UX とする。
 
@@ -19,7 +19,7 @@
 |---|------|------|
 | 1 | **高速性** | クエリのエンドツーエンドで < 50ms (10万チャンク規模、ウォームキャッシュ) を目標。 |
 | 2 | **計測可能性** | 全フェーズの所要時間を常時収集。`--timings` で内訳を即可視化。最適化判断はベンチ数値に基づく。 |
-| 3 | **単一バイナリ** | 動的リンク依存を最小化。`cargo install vecgrep` / GitHub Releases の1ファイルで動く。 |
+| 3 | **単一バイナリ** | 動的リンク依存を最小化。`cargo install vsgrep` / GitHub Releases の1ファイルで動く。 |
 | 4 | **grep 互換の体感** | 引数順・出力形式・終了コード・パイプ親和性を grep/ripgrep に寄せる。 |
 | 5 | **ゼロ設定で動く** | 設定ファイル必須にしない。デフォルトで賢く振る舞う。 |
 | 6 | **差し替え可能** | モデル・距離関数・チャンク戦略は全て差し替え可能なプラガブル構造。 |
@@ -32,8 +32,8 @@
 |------|------|
 | 検索対象 | コード / 自然言語 **両方を汎用的に扱う** (ファイル拡張子で自動判定) |
 | 既定モデル | **`intfloat/multilingual-e5-small`** (384 次元)。`--model` で差し替え可能。 |
-| インデックス | **永続インデックス** (`.vecgrep/` ディレクトリにキャッシュ)。`--no-cache` 併設。 |
-| `.gitignore` 連携 | **初回 `index` 時に `.vecgrep/` を自動追記** (git リポジトリ内のみ、既存行があればスキップ)。`--no-gitignore` で抑止可。 |
+| インデックス | **永続インデックス** (`.vsgrep/` ディレクトリにキャッシュ)。`--no-cache` 併設。 |
+| `.gitignore` 連携 | **初回 `index` 時に `.vsgrep/` を自動追記** (git リポジトリ内のみ、既存行があればスキップ)。`--no-gitignore` で抑止可。 |
 | 検索アルゴリズム | **HNSW** (近似最近傍)。小規模時は自動でブルートフォースへフォールバック。 |
 | CLI エイリアス | **`vg` を同梱**。バイナリのハードリンク or シンボリックリンクとしてインストーラで配置。 |
 | ライセンス | **MIT**。 |
@@ -47,44 +47,44 @@
 
 ```bash
 # 基本: カレント以下を意味検索
-vecgrep "再試行ロジック"
-vg "再試行ロジック"            # 同梱エイリアス (vecgrep と等価)
+vsgrep "再試行ロジック"
+vg "再試行ロジック"            # 同梱エイリアス (vsgrep と等価)
 
 # パス指定
-vecgrep "user authentication flow" src/
+vsgrep "user authentication flow" src/
 
 # 複数パス
-vecgrep "database connection pool" src/ lib/
+vsgrep "database connection pool" src/ lib/
 
 # 件数制限 (デフォルト 10 件)
-vecgrep -k 20 "error handling"
+vsgrep -k 20 "error handling"
 
 # スコア閾値
-vecgrep --threshold 0.75 "parse JSON"
+vsgrep --threshold 0.75 "parse JSON"
 
 # ファイルタイプ絞り込み (ripgrep 互換)
-vecgrep -t rust "lock-free queue"
-vecgrep -g '!**/*.test.ts' "feature flag"
+vsgrep -t rust "lock-free queue"
+vsgrep -g '!**/*.test.ts' "feature flag"
 
 # grep と組み合わせ (ハイブリッド検索の原点)
-vecgrep "認証処理" | rg -F "TODO"
+vsgrep "認証処理" | rg -F "TODO"
 ```
 
 ### 4.2 サブコマンド
 
 ```bash
-vecgrep index [PATH]       # インデックスの明示的な構築・更新
-vecgrep index --watch      # fs 変更を検知してインクリメンタル更新
-vecgrep status             # 現在のインデックスの統計情報
-vecgrep clean              # .vecgrep/ を削除
-vecgrep model list         # 利用可能なモデル一覧
-vecgrep model use <NAME>   # デフォルトモデルを切替
-vecgrep model add <ONNX>   # 任意の ONNX モデルを登録
+vsgrep index [PATH]       # インデックスの明示的な構築・更新
+vsgrep index --watch      # fs 変更を検知してインクリメンタル更新
+vsgrep status             # 現在のインデックスの統計情報
+vsgrep clean              # .vsgrep/ を削除
+vsgrep model list         # 利用可能なモデル一覧
+vsgrep model use <NAME>   # デフォルトモデルを切替
+vsgrep model add <ONNX>   # 任意の ONNX モデルを登録
 ```
 
-検索時に `.vecgrep/` が存在しなければ **自動で初回インデックスを構築** (対話なし、進捗バー表示)。
+検索時に `.vsgrep/` が存在しなければ **自動で初回インデックスを構築** (対話なし、進捗バー表示)。
 
-初回 `index` 時、カレントが git リポジトリ内であれば `.gitignore` に `.vecgrep/` 行を自動追記する (既に存在する場合はスキップ)。追記時は stderr に 1 行通知し、`--no-gitignore` で抑止可能。
+初回 `index` 時、カレントが git リポジトリ内であれば `.gitignore` に `.vsgrep/` 行を自動追記する (既に存在する場合はスキップ)。追記時は stderr に 1 行通知し、`--no-gitignore` で抑止可能。
 
 ### 4.3 出力フォーマット
 
@@ -109,7 +109,7 @@ src/net/mod.rs:118: pub async fn retry_with_jitter<F>(f: F) -> Result<T>
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                         vecgrep CLI                            │
+│                         vsgrep CLI                            │
 └────────────────────────────────────────────────────────────────┘
            │                              │
            ▼                              ▼
@@ -125,7 +125,7 @@ src/net/mod.rs:118: pub async fn retry_with_jitter<F>(f: F) -> Result<T>
            └──────────┬───────────────────┘
                       ▼
            ┌──────────────────────┐
-           │   .vecgrep/ (store)  │
+           │   .vsgrep/ (store)  │
            │   ├── meta.bin       │  マニフェスト (モデル ID、次元、チャンク数、...)
            │   ├── chunks.bin     │  チャンクメタ (path, span, hash)
            │   ├── vectors.bin    │  密ベクトル (f16 or f32, mmap)
@@ -181,14 +181,14 @@ src/net/mod.rs:118: pub async fn retry_with_jitter<F>(f: F) -> Result<T>
 
 ### 7.2 モデル取得
 
-1. 初回検索 / `vecgrep index` で `~/.cache/vecgrep/models/<model-id>/` が無ければ自動 DL。
+1. 初回検索 / `vsgrep index` で `~/.cache/vsgrep/models/<model-id>/` が無ければ自動 DL。
 2. DL 元: Hugging Face (ONNX 変換済みレポジトリを優先)。
 3. `--model <HF_ID|LOCAL_PATH>` で任意モデル指定。
-4. `vecgrep model add ./my_model.onnx --tokenizer ./tokenizer.json` でローカル登録。
+4. `vsgrep model add ./my_model.onnx --tokenizer ./tokenizer.json` でローカル登録。
 
 ### 7.3 モデル・インデックスの整合性
 
-- `.vecgrep/meta.bin` に `(model_id, model_version, dim)` を記録。
+- `.vsgrep/meta.bin` に `(model_id, model_version, dim)` を記録。
 - モデルを切り替えたら **インデックス再構築を要求** (自動で検知し、確認プロンプト)。
 
 ---
@@ -228,7 +228,7 @@ query ─► tokenize ─► embed ─► HNSW.search(k=40) ─► rerank ─►
 
 ### 9.3 ハイブリッド検索 (Phase 2)
 
-- `vecgrep -H "retry logic"` で BM25 (tantivy) + ベクトルのハイブリッドスコア。
+- `vsgrep -H "retry logic"` で BM25 (tantivy) + ベクトルのハイブリッドスコア。
 - Reciprocal Rank Fusion を既定。
 
 ---
@@ -255,12 +255,12 @@ query ─► tokenize ─► embed ─► HNSW.search(k=40) ─► rerank ─►
 
 検索パスと索引構築パスの両方を、以下の粒度でタイミング収集する。
 
-**検索パス** (`vecgrep "query"`):
+**検索パス** (`vsgrep "query"`):
 
 | フェーズ | 内容 | 期待レンジ (10万チャンク) |
 |---------|------|--------------------------|
 | `startup`       | プロセス起動〜`clap` パース完了 | < 5ms |
-| `meta.load`     | `.vecgrep/meta.bin` 読み込み | < 1ms |
+| `meta.load`     | `.vsgrep/meta.bin` 読み込み | < 1ms |
 | `index.load`    | vectors / hnsw の mmap | < 5ms (lazy) |
 | `model.load`    | ONNX セッション初期化 (ウォーム時は 0) | 初回 50〜200ms |
 | `query.tokenize`| クエリのトークナイズ | < 1ms |
@@ -270,7 +270,7 @@ query ─► tokenize ─► embed ─► HNSW.search(k=40) ─► rerank ─►
 | `io.extract`    | ヒットしたチャンクの原文取得 | < 5ms |
 | `format.print`  | 標準出力へ整形 | < 2ms |
 
-**索引構築パス** (`vecgrep index`):
+**索引構築パス** (`vsgrep index`):
 
 | フェーズ | 内容 |
 |---------|------|
@@ -294,12 +294,12 @@ query ─► tokenize ─► embed ─► HNSW.search(k=40) ─► rerank ─►
   - `--timings` : プロセス終了直前に階層ツリー + 累積時間 + 実行回数 + % を stderr に出力。
   - `--timings=json` : 同じ内容を機械可読 JSON で出力 (CI でのトレンド監視用)。
   - `--trace <FILE>` : Chrome Tracing 形式 (Perfetto で開ける)。詳細な呼び出しチェインを可視化。
-  - 環境変数 `VECGREP_TIMINGS=1` でも有効化 (フラグを付け忘れてもトラブルシュート可能)。
+  - 環境変数 `VSGREP_TIMINGS=1` でも有効化 (フラグを付け忘れてもトラブルシュート可能)。
 
 ### 11.3 出力例 (`--timings`)
 
 ```
-vecgrep timings (total 42.3 ms, 12,438 chunks scanned)
+vsgrep timings (total 42.3 ms, 12,438 chunks scanned)
 ├─ startup ............................ 3.1 ms   ( 7.3%)
 ├─ meta.load .......................... 0.4 ms   ( 0.9%)
 ├─ index.load (mmap) .................. 1.2 ms   ( 2.8%)
@@ -354,10 +354,10 @@ other/overhead ......................... 17.5 ms (41.4%)
 - ブルートフォース検索のみ、インデックス in-memory
 - grep 互換出力
 - **計測基盤を MVP 時点で導入**: `tracing` スパン + `--timings` フラグ + `criterion` ベンチ雛形
-- **出荷目標**: `vecgrep "query" .` が動き、`--timings` で全フェーズの内訳が見える
+- **出荷目標**: `vsgrep "query" .` が動き、`--timings` で全フェーズの内訳が見える
 
 ### M2: 永続インデックス + HNSW
-- `.vecgrep/` 書き出し / ロード (mmap)
+- `.vsgrep/` 書き出し / ロード (mmap)
 - HNSW 構築 + 検索
 - 差分更新 (ハッシュベース)
 - **出荷目標**: ripgrep 並みの起動速度 + 意味検索
@@ -366,7 +366,7 @@ other/overhead ......................... 17.5 ms (41.4%)
 - `model` サブコマンド、HF 自動 DL
 - GitHub Releases で Linux/macOS/Windows バイナリ配布
 - `cargo-binstall` 対応
-- **出荷目標**: `cargo install vecgrep` で 1 コマンド導入
+- **出荷目標**: `cargo install vsgrep` で 1 コマンド導入
 
 ### M4: 拡張 (reranker / ハイブリッド / AST チャンク / watch)
 - tree-sitter ベース AST チャンク
@@ -393,7 +393,7 @@ other/overhead ......................... 17.5 ms (41.4%)
 - **MIT ライセンス** で配布。
 - リポジトリ直下に `LICENSE` ファイル、`Cargo.toml` に `license = "MIT"` を記載。
 - 依存クレート (e.g., `ort`, `tokenizers`, `hnsw_rs`, `ignore` 等) はそれぞれ MIT / Apache-2.0 / BSD などを想定。将来 GPL 系の依存が入りそうになったら当該 PR で協議する運用。
-- 埋め込みモデル自体のライセンスは **モデル側に従う**。`multilingual-e5-small` は MIT。`vecgrep` 本体には同梱しない (初回 DL) ため再配布条項は発生しない。
+- 埋め込みモデル自体のライセンスは **モデル側に従う**。`multilingual-e5-small` は MIT。`vsgrep` 本体には同梱しない (初回 DL) ため再配布条項は発生しない。
 
 ### 15.2 テレメトリ
 - **常時オフ**。ビルドオプションでも有効化しない。
@@ -401,9 +401,9 @@ other/overhead ......................... 17.5 ms (41.4%)
 - プライバシポリシー: ファイル内容・クエリ・パス等を一切外部に送信しない旨を README に明記。
 
 ### 15.3 エイリアス `vg` の配置
-- `cargo install` 経由: `build.rs` or `install.sh` で `$CARGO_HOME/bin/vg` を `vecgrep` にシンボリックリンク (Windows はハードリンクにフォールバック)。
-- GitHub Releases バイナリ: tarball / zip に `vecgrep` と `vg` (単なるリンク) を同梱。
-- 名前衝突時は警告を出してスキップし、`vecgrep` のみ有効にする。
+- `cargo install` 経由: `build.rs` or `install.sh` で `$CARGO_HOME/bin/vg` を `vsgrep` にシンボリックリンク (Windows はハードリンクにフォールバック)。
+- GitHub Releases バイナリ: tarball / zip に `vsgrep` と `vg` (単なるリンク) を同梱。
+- 名前衝突時は警告を出してスキップし、`vsgrep` のみ有効にする。
 
 ### 15.4 残された意思決定 (将来スプリント)
 - [ ] HNSW パラメータ (`M`, `ef_construction`) のデフォルト値を実測して決定。
