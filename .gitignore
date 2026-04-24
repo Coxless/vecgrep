@@ -2,8 +2,8 @@
 /target
 Cargo.lock.bak
 
-# vecgrep persistent index (DESIGN §3)
-/.vecgrep/
+# vsgrep persistent index (DESIGN §3)
+/.vsgrep/
 
 # OS / editor
 .DS_Store

@@ -1,4 +1,4 @@
-# vecgrep
+# vsgrep
 
 A ripgrep-like local semantic (vector) search CLI, written in Rust.
 

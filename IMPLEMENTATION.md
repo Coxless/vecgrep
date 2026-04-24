@@ -1,4 +1,4 @@
-# vecgrep 実装工程ドキュメント
+# vsgrep 実装工程ドキュメント
 
 > DESIGN.md が「何を作るか」を定義する憲法だとすれば、本ドキュメントは「どの順で、どの粒度で作っていくか」を定める工程表。
 > 各ステップは「プラン作成 → 実装 → 受け入れ基準クリア」の 1 ループで閉じる。
@@ -49,9 +49,9 @@
 
 | Phase | ステップ範囲 | 出荷目標 |
 |-------|--------------|---------|
-| M1 Walking Skeleton | Step 1〜9 | `vecgrep "query" .` が動き、`--timings` で内訳が見える |
+| M1 Walking Skeleton | Step 1〜9 | `vsgrep "query" .` が動き、`--timings` で内訳が見える |
 | M2 永続インデックス + HNSW | Step 10〜15 | ripgrep 並みの起動 + 永続インデックス + 差分更新 |
-| M3 モデル管理 + 配布 | Step 16〜20 | `cargo install vecgrep` / GitHub Releases で 1 コマンド導入 |
+| M3 モデル管理 + 配布 | Step 16〜20 | `cargo install vsgrep` / GitHub Releases で 1 コマンド導入 |
 | M4 拡張 | Step 21〜 | reranker / ハイブリッド / AST チャンク / watch |
 
 ---
@@ -60,9 +60,9 @@
 
 ### Step 1: プロジェクト初期化と CI 雛形
 - **目的**: 以降のすべてのステップが乗る土台を作る。
-- **スコープ**: `cargo new --bin vecgrep` / `Cargo.toml` メタデータ (MIT, edition) / `rust-toolchain.toml` / `rustfmt.toml` / `clippy.toml` / `.gitignore` / GitHub Actions (fmt, clippy, test) / `CHANGELOG.md` 雛形。
+- **スコープ**: `cargo new --bin vsgrep` / `Cargo.toml` メタデータ (MIT, edition) / `rust-toolchain.toml` / `rustfmt.toml` / `clippy.toml` / `.gitignore` / GitHub Actions (fmt, clippy, test) / `CHANGELOG.md` 雛形。
 - **非スコープ**: リリースワークフロー、バイナリ配布 (M3)。
-- **プラン時に詰める論点**: ワークスペース化するか単一クレートか (将来 `vecgrep-core` と `vecgrep-cli` を分ける可能性)。MSRV の決定。
+- **プラン時に詰める論点**: ワークスペース化するか単一クレートか (将来 `vsgrep-core` と `vsgrep-cli` を分ける可能性)。MSRV の決定。
 - **受け入れ基準**:
   - `cargo build` / `cargo test` / `cargo clippy -- -D warnings` が通る。
   - CI がこれら 3 つを PR ごとに実行。
@@ -77,11 +77,13 @@
   - オプション: `-k/--top-k`, `--threshold`, `-t/--type`, `-g/--glob`, `--score`, `--json`, `-C/--context`, `--heading`, `--timings`, `--trace`, `--no-cache`, `--model`, `--ef`, `--chunk-size`, `--chunk-overlap`, `-H/--hybrid` (Phase 2 でもフラグだけ用意)
   - サブコマンド: `index`, `status`, `clean`, `model {list,use,add}`
 - **非スコープ**: 実処理の実装 (ダミーで println! 可)。
-- **プラン時に詰める論点**: フラグ既定値、short オプションの競合 (grep 互換との齟齬)。サブコマンドとフラグの優先順位 (例: `--json` と `vecgrep index` の組合せ)。
+- **プラン時に詰める論点**: フラグ既定値、short オプションの競合 (grep 互換との齟齬)。サブコマンドとフラグの優先順位 (例: `--json` と `vsgrep index` の組合せ)。
 - **受け入れ基準**:
-  - `vecgrep --help` が DESIGN §4 の CLI を網羅して表示。
+  - `vsgrep --help` が DESIGN §4 の CLI を網羅して表示。
   - 全サブコマンドが認識され、未実装箇所は "not implemented" を stderr 出力。
   - CLI パースの単体テスト (`clap::Command::debug_assert` を使用) が CI で通る。
+- **備考**:
+  - vsgrepは名前がほかのプロダクトと被っていたので、vector semanticの略でvsgrepにプロダクトの名前を変更したい。DESIGN.mdとIMPLEMENTATION.mdなど必要な箇所でvsgrepをvsgrepに置換する。エイリアスはvgで引き続き。
 
 ### Step 3: ファイル走査 (`ignore` クレート)
 - **目的**: 対象ファイル列挙の基盤を作る。ripgrep の挙動を踏襲。
@@ -107,7 +109,7 @@
 - **目的**: ONNX セッションを立ち上げ、文字列 → ベクトルの 1 本道を通す。
 - **スコープ**: `ort` セッション初期化 / `tokenizers` で `tokenizer.json` ロード / E5 系のプレフィックス (`query:` / `passage:`) 扱い / 単一文字列の埋め込み関数 / バッチ埋め込み関数 (既定 64) / fp32 出力で一旦確定 (fp16 は Step 10 で導入)。
 - **非スコープ**: モデル自動 DL (M3) — ここでは固定パスを環境変数または既定で読む。
-- **プラン時に詰める論点**: モデルファイルの配置場所 (開発時は `tests/fixtures/` or `$VECGREP_MODEL`)。`ort` の `load-dynamic` / `bundled` どちらで開発を進めるか (開発は system、リリースは bundled)。`session.run` の入力 shape と attention mask の作り方。
+- **プラン時に詰める論点**: モデルファイルの配置場所 (開発時は `tests/fixtures/` or `$VSGREP_MODEL`)。`ort` の `load-dynamic` / `bundled` どちらで開発を進めるか (開発は system、リリースは bundled)。`session.run` の入力 shape と attention mask の作り方。
 - **受け入れ基準**:
   - 1 文の埋め込みが `query.embed` span で計測可能。
   - ベクトル次元が 384 であることを起動時にアサート。
@@ -132,10 +134,10 @@
   - パイプ時に色が自動オフになる。
 
 ### Step 8: M1 結合 (エンドツーエンド)
-- **目的**: Step 2〜7 をワイヤリングし `vecgrep "query" .` を動かす。
+- **目的**: Step 2〜7 をワイヤリングし `vsgrep "query" .` を動かす。
 - **スコープ**: インデックスは in-memory (毎回再構築) / 検索パスのオーケストレーション / エラーハンドリング (モデル未配置時の親切メッセージ)。
 - **受け入れ基準**:
-  - 任意のディレクトリで `vecgrep "retry logic" src/` が結果を返す。
+  - 任意のディレクトリで `vsgrep "retry logic" src/` が結果を返す。
   - 終了コードが grep 互換 (ヒット 0、未ヒット 1、エラー 2)。
   - スモーク E2E テスト (小コーパス + クエリ → 期待ヒット) が CI で通る。
 
@@ -144,7 +146,7 @@
 - **スコープ**:
   - `tracing` スパンで DESIGN §11.1 のフェーズ名を付与。
   - `TimingCollector` サブスクライバを実装し、プロセス終了直前に階層ツリー + % を stderr 出力 (`--timings`)。
-  - `--timings=json` / `VECGREP_TIMINGS=1` 対応。
+  - `--timings=json` / `VSGREP_TIMINGS=1` 対応。
   - `--trace <FILE>` で `tracing-chrome` を配線。
   - `benches/` に各フェーズの `criterion` 雛形 (`query_embed`, `bruteforce_search`, `chunk`, `tokenize_batch`)。
   - `hyperfine` E2E スクリプトを `bench/` に置く (CI では任意実行)。
@@ -158,7 +160,7 @@
 
 ## 4. Phase M2 — 永続インデックス + HNSW
 
-### Step 10: `.vecgrep/` レイアウトと永続化 (ベクトル / メタ)
+### Step 10: `.vsgrep/` レイアウトと永続化 (ベクトル / メタ)
 - **目的**: インデックスをディスクに置き、起動時に mmap で即ロードできるようにする。
 - **スコープ**: `meta.bin` (model_id, model_version, dim, chunk 数, 作成日時) / `chunks.bin` (path, span, hash) / `vectors.bin` (fp16 に切替、mmap) / アトミック書き出し (tmp → rename) / バージョン番号付与。
 - **プラン時に詰める論点**: シリアライズは `rkyv` か `bincode` か (起動時間と保守性のトレードオフ)。fp16 変換で精度が落ちないことの計測。マルチプロセス同時書込みのロック戦略。
@@ -183,15 +185,15 @@
   - 1 ファイル変更の差分更新が DESIGN 目標 < 200ms に収まる。
   - tombstone 比率の status 表示で可視化。
 
-### Step 13: `vecgrep index` / `status` / `clean` サブコマンド
+### Step 13: `vsgrep index` / `status` / `clean` サブコマンド
 - **目的**: DESIGN §4.2 の運用コマンドを満たす。
-- **スコープ**: 明示的インデックス構築 / 統計表示 (チャンク数、モデル、更新時刻、tombstone 率、サイズ) / `.vecgrep/` 削除。初回検索時の自動インデックス構築 (進捗バー in `indicatif`, stderr)。
+- **スコープ**: 明示的インデックス構築 / 統計表示 (チャンク数、モデル、更新時刻、tombstone 率、サイズ) / `.vsgrep/` 削除。初回検索時の自動インデックス構築 (進捗バー in `indicatif`, stderr)。
 - **受け入れ基準**:
   - `status` が人間可読 + `--json` の両方を持つ。
   - 自動インデックス構築時に stdout を汚さない (パイプ安全)。
 
 ### Step 14: `.gitignore` 自動追記
-- **目的**: DESIGN §3 と §4.2 の ".vecgrep/ を自動追記" ポリシーを満たす。
+- **目的**: DESIGN §3 と §4.2 の ".vsgrep/ を自動追記" ポリシーを満たす。
 - **スコープ**: 初回 `index` 時のみ追記 / 既存行があればスキップ / `--no-gitignore` / git リポジトリ外では無動作 / 追記時は stderr に 1 行通知。
 - **受け入れ基準**:
   - 単体テスト: 既に行がある / 無い / git 外 / フラグ抑止の 4 ケース。
@@ -210,10 +212,10 @@
 
 ### Step 16: モデル DL とキャッシュ
 - **目的**: 初回検索時にモデル自動取得。
-- **スコープ**: Hugging Face からの ONNX 取得 / `~/.cache/vecgrep/models/<model-id>/` 配置 / プロキシ環境変数尊重 / 再開可能な DL (失敗時再試行) / SHA 検証。
+- **スコープ**: Hugging Face からの ONNX 取得 / `~/.cache/vsgrep/models/<model-id>/` 配置 / プロキシ環境変数尊重 / 再開可能な DL (失敗時再試行) / SHA 検証。
 - **プラン時に詰める論点**: `hf-hub` クレート採用可否 / オフライン配置手順 / モデル整合性チェック (DESIGN §7.3)。
 
-### Step 17: `vecgrep model {list,use,add}`
+### Step 17: `vsgrep model {list,use,add}`
 - **目的**: DESIGN §4.2 のモデル管理 UX。
 - **スコープ**: 組込み候補モデルのカタログ / `use` でデフォルト切替 (インデックス再構築を要求) / `add` でローカル ONNX 登録 (tokenizer 必須)。
 - **受け入れ基準**: モデル切替時にインデックス不整合を検知してプロンプト。
@@ -224,8 +226,8 @@
 - **プラン時に詰める論点**: musl と onnxruntime のリンク問題 (DESIGN §14 リスク) / Windows のコード署名どうするか (初期は未署名)。
 
 ### Step 19: リリース配布 (GitHub Releases + cargo-binstall)
-- **目的**: `cargo install vecgrep` と `cargo binstall vecgrep` のどちらでも入る。
-- **スコープ**: リリースワークフロー / `[package.metadata.binstall]` 設定 / tarball に `vecgrep` と `vg` を同梱 / SHA256SUMS 公開。
+- **目的**: `cargo install vsgrep` と `cargo binstall vsgrep` のどちらでも入る。
+- **スコープ**: リリースワークフロー / `[package.metadata.binstall]` 設定 / tarball に `vsgrep` と `vg` を同梱 / SHA256SUMS 公開。
 
 ### Step 20: `vg` エイリアス配置
 - **目的**: DESIGN §15.3。
