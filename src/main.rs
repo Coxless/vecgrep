@@ -1,4 +1,5 @@
 mod cli;
+mod walk;
 
 use std::process::ExitCode;
 
