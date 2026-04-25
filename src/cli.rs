@@ -135,6 +135,25 @@ pub enum ModelCmd {
     },
 }
 
+#[allow(dead_code)]
+impl SearchArgs {
+    /// Validate chunk parameters that clap cannot express as type constraints.
+    ///
+    /// Called from main in Step 8 when the search pipeline is wired up.
+    pub fn validate_chunk_args(&self) -> Result<(), String> {
+        if self.chunk_size == 0 {
+            return Err("--chunk-size must be > 0".into());
+        }
+        if self.chunk_overlap >= self.chunk_size {
+            return Err(format!(
+                "--chunk-overlap ({}) must be less than --chunk-size ({})",
+                self.chunk_overlap, self.chunk_size
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,5 +287,18 @@ mod tests {
             }
             other => panic!("expected Model::Add, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn chunk_validates_overlap_lt_size() {
+        // Parse succeeds; semantic validation catches the error.
+        let cli = parse(&["vsgrep", "--chunk-size", "5", "--chunk-overlap", "5", "q"]);
+        assert!(cli.search.validate_chunk_args().is_err());
+    }
+
+    #[test]
+    fn chunk_validates_size_nonzero() {
+        let cli = parse(&["vsgrep", "--chunk-size", "0", "q"]);
+        assert!(cli.search.validate_chunk_args().is_err());
     }
 }
