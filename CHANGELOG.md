@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Embedding runtime (Step 5): `src/embed.rs` wraps `ort` (ONNX Runtime, `load-dynamic`)
+  and `tokenizers` (HuggingFace) to produce 384-dim f32 vectors (DESIGN §7.1).
+  `Embedder::new` loads `model.onnx` + `tokenizer.json` from `VSGREP_MODEL_DIR` and
+  asserts dim == 384 via a warmup inference pass.  `embed_query` prefixes `"query: "`;
+  `embed_passages` prefixes `"passage: "` and batches at size 64 (configurable).
+  Output vectors are L2-normalised so cosine similarity reduces to a dot product
+  (Step 6 brute-force will rely on this).  Instrumented with `model.load`,
+  `query.tokenize`, `query.embed`, `tokenize.batch`, and `embed.batch` tracing spans
+  (DESIGN §11.1); subscriber installed in Step 9.  `#[allow(dead_code)]` — wired into
+  the search/index pipeline in Step 8.  Integration tests in `tests/embed_e5.rs` are
+  `#[ignore]`-gated; see `tests/fixtures/README.md` for model download instructions.
+  fp16 storage deferred to Step 10; model auto-download deferred to Step 16 (M3).
 - Initial project scaffolding: Cargo project, mise / rust-toolchain pin to 1.93.0,
   rustfmt / clippy config, GitHub Actions CI (fmt / clippy / test).
 - CLI skeleton (Step 2): `clap` v4 derive defines the full surface from
