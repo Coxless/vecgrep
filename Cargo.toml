@@ -17,7 +17,10 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 ignore = "0.4"
+ndarray = "0.16"
+ort = { version = "=2.0.0-rc.10", default-features = false, features = ["ndarray", "load-dynamic"] }
 thiserror = "2"
+tokenizers = { version = "0.22", default-features = false, features = ["onig"] }
 tracing = "0.1"
 
 [dev-dependencies]

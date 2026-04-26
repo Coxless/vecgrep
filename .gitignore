@@ -14,5 +14,9 @@ Thumbs.db
 .vscode/
 *~
 
+# Embedding model fixtures (Step 5) — too large for git (≈118 MB)
+/tests/fixtures/models/
+*.onnx
+
 # Claude Code local (developer-specific) settings
 .claude/settings.local.json

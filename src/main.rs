@@ -1,5 +1,6 @@
 mod chunk;
 mod cli;
+mod embed;
 mod walk;
 
 use std::process::ExitCode;
